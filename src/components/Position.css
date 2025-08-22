@@ -1,0 +1,72 @@
+.box {
+	padding: 30px;
+	margin: 10px;
+	border-radius: 10px;
+	color: white;
+	cursor: pointer;
+	user-select: none;
+}
+#box1 {
+	background-color: red;
+}
+#box2 {
+	background-color: green;
+}
+#box3 {
+	background-color: blue;
+}
+#box4 {
+	background-color: orange;
+}
+.modal {
+	position: fixed;
+	top: 15%;
+	left: 30%;
+	right: 30%;
+}
+.modal-content {
+	width: 500px;
+	height: 500px;
+	padding: 10px;
+	position: absolute;
+	border-radius: 10px;
+	background-color: rgb(226, 255, 255);
+}
+.modal-header {
+	display: flex;
+	justify-content: space-between;
+}
+.modal-close {
+	position: relative;
+	top: 0px;
+	cursor: pointer;
+	border: 1px solid tomato;
+	background-color: transparent;
+	font-size: 15px;
+	padding: 5px 10px;
+	width: auto;
+	height: auto;
+	align-self: flex-end;
+}
+.modal-body {
+	margin-top: 10px;
+	display: flex;
+	justify-content: center;
+	flex-direction: column;
+	gap: 10px;
+}
+.modal-input {
+	padding: 15px;
+	border-radius: 10px;
+	border: 1px solid tomato;
+	outline: none;
+}
+.modal-submit {
+	padding: 10px 20px;
+	border-radius: 10px;
+	border: 1px solid tomato;
+	cursor: pointer;
+	background-color: azure;
+	width: fit-content;
+	align-self: flex-start;
+}
