@@ -21,26 +21,26 @@ const defaultTemplates = {
 	kotlin: `fun main() {\n    val name = "World"\n    println("Hello, \$name!")\n}\n`,
 };
 
-function CodeEditor() {
-	const extensions = [
-		{
-			label: "javascript",
-			value: "javascript",
-			editorLanguage: "javascript",
-		},
-		{ label: "python", value: "python", editorLanguage: "python" },
-		{ label: "java", value: "java", editorLanguage: "java" },
-		{ label: "cpp", value: "c++", editorLanguage: "cpp" },
-		{ label: "c", value: "c", editorLanguage: "c" },
-		{ label: "c#", value: "csharp", editorLanguage: "csharp" },
-		{ label: "typescript", value: "typescript", editorLanguage: "typescript" },
-		{ label: "php", value: "php", editorLanguage: "php" },
-		{ label: "go", value: "go", editorLanguage: "go" },
-		{ label: "ruby", value: "ruby", editorLanguage: "ruby" },
-		{ label: "rust", value: "rust", editorLanguage: "rust" },
-		{ label: "kotlin", value: "kotlin", editorLanguage: "kotlin" },
-	];
+const extensions = [
+	{
+		label: "javascript",
+		value: "javascript",
+		editorLanguage: "javascript",
+	},
+	{ label: "python", value: "python", editorLanguage: "python" },
+	{ label: "java", value: "java", editorLanguage: "java" },
+	{ label: "cpp", value: "c++", editorLanguage: "cpp" },
+	{ label: "c", value: "c", editorLanguage: "c" },
+	{ label: "php", value: "php", editorLanguage: "php" },
+	{ label: "go", value: "go", editorLanguage: "go" },
+	{ label: "ruby", value: "ruby", editorLanguage: "ruby" },
+	{ label: "rust", value: "rust", editorLanguage: "rust" },
+	{ label: "typescript", value: "typescript", editorLanguage: "typescript" },
+	{ label: "c#", value: "csharp", editorLanguage: "csharp" },
+	// { label: "kotlin", value: "kotlin", editorLanguage: "kotlin" },
+];
 
+function CodeEditor() {
 	const [compiledOutput, setCompiledOutput] = useState("");
 	const [compilationError, setCompilationError] = useState(null);
 	const [loader, setLoader] = useState(false);
@@ -60,9 +60,58 @@ function CodeEditor() {
 		setCodeExample(editorRef.current.getValue());
 	}
 
+	const startPollingToGetOutput = (jobId) => {
+		const intervalId = setInterval(async () => {
+			try {
+				const res = await axios.get(`http://localhost:5100/run/getOutputFromJobId?jobId=${jobId}`);
+				const stdout = res?.data?.output;
+				const status = res?.data?.status;
+				const error = res?.data?.error;
+				const codeStatus = res?.data?.codeStatus;
+
+				if (status === "completed") {
+					if (
+						codeStatus === "Max Output Limit Exceeded" ||
+						codeStatus === "Time Limit Exceeded" ||
+						codeStatus === "Memory Limit Exceeded"
+					) {
+						setCompilationError(stdout || "empty output");
+						setOutputType(codeStatus);
+					} else if (codeStatus === "Max Error Limit Exceeded") {
+						setCompilationError(error || "empty output");
+						setOutputType(codeStatus);
+					} else if (error) {
+						setCompilationError(error || "empty output");
+						setOutputType("Issue Detected");
+					} else {
+						setCompiledOutput(stdout || "empty output");
+					}
+					setLoader(false);
+					clearInterval(intervalId);
+				} else if (status === "error") {
+					setCompilationError(error || "An error occurred while compiling the code.");
+					setOutputType(codeStatus);
+					setLoader(false);
+					clearInterval(intervalId);
+				} else {
+					setCompiledOutput(stdout || "");
+				}
+			} catch (e) {
+				setCompilationError(
+					e?.response?.data?.data?.output || "An error occurred while compiling the code."
+				);
+				setOutputType(e?.response?.data?.data?.errorType || "error");
+				setLoader(false);
+				clearInterval(intervalId); // stop polling on failure
+			}
+		}, 1000);
+
+		return intervalId;
+	};
+
 	const handleCompile = async () => {
 		const payload = {
-			language: language,
+			language,
 			code: codeExampleValue,
 			input: inputValue,
 		};
@@ -72,15 +121,14 @@ function CodeEditor() {
 			setCompiledOutput("");
 			setLoader(true);
 			setOutputType("");
-			const res = await axios.post("http://localhost:5100/run", payload);
-			const stdout = res?.data?.data?.output;
-			setCompiledOutput(stdout || "empty output");
-			setCompilationError(null);
-			setOutputType("success");
+			const res = await axios.post("http://localhost:5100/run/runCode", payload);
+			const pollingId = startPollingToGetOutput(res.data.jobId);
+			return () => clearInterval(pollingId);
 		} catch (e) {
-			setCompilationError(e?.response?.data?.data?.output || "An error occurred while compiling the code.");
-			setOutputType(e?.response?.data?.data?.errorType || "");
-		} finally {
+			setCompilationError(
+				e?.response?.data?.data?.output || "An error occurred while compiling the code."
+			);
+			setOutputType(e?.response?.data?.data?.errorType || "error");
 			setLoader(false);
 		}
 	};
@@ -130,7 +178,7 @@ function CodeEditor() {
 
 				{compiledOutput && (
 					<div className="p-2 m-5 rounded border border-green-300 bg-green-50 h-[150px] w-[600px] overflow-auto">
-						<strong className="text-green-800">Status: {outputType}</strong>
+						<strong className="text-green-800">{outputType}</strong>
 						<div className="mt-2 space-y-1">
 							{compiledOutput.split("\n").map((line, index) => (
 								<div key={index} className="text-green-700 font-mono">
@@ -143,7 +191,7 @@ function CodeEditor() {
 
 				{compilationError && (
 					<div className="p-2 m-5 rounded border border-red-300 bg-red-50 h-[150px] w-[600px] overflow-auto">
-						<strong className="text-red-800">Status: {outputType}</strong>
+						<strong className="text-red-800">{outputType}</strong>
 						<div className="mt-2 space-y-1">
 							{compilationError.split("\n").map((line, index) => (
 								<div key={index} className="text-red-700 font-mono">
